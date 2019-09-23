@@ -30,36 +30,44 @@
 
 #ifndef __SDS_H
 #define __SDS_H
-
+//最大预分配1M
 #define SDS_MAX_PREALLOC (1024*1024)
 
 #include <sys/types.h>
 #include <stdarg.h>
 
 typedef char *sds;
-
+//sdshdr 结构体
 struct sdshdr {
-    unsigned int len;
-    unsigned int free;
+    unsigned int len; //字符串长度
+    unsigned int free; //剩余空间
     char buf[];
 };
 
+//sds指向的字符串的长度
 static inline size_t sdslen(const sds s) {
     struct sdshdr *sh = (void*)(s-(sizeof(struct sdshdr)));
     return sh->len;
 }
-
+//sds剩余的空间
 static inline size_t sdsavail(const sds s) {
     struct sdshdr *sh = (void*)(s-(sizeof(struct sdshdr)));
     return sh->free;
 }
 
+//创建字符串，使用字符串init初始化，长度为initlen
 sds sdsnewlen(const void *init, size_t initlen);
+//创建空字符串
 sds sdsnew(const char *init);
+//创建一个空的字符串
 sds sdsempty(void);
+//长度
 size_t sdslen(const sds s);
+//复制
 sds sdsdup(const sds s);
+//释放
 void sdsfree(sds s);
+//剩余空间
 size_t sdsavail(const sds s);
 sds sdsgrowzero(sds s, size_t len);
 sds sdscatlen(sds s, const void *t, size_t len);
