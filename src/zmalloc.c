@@ -74,12 +74,13 @@ void zlibc_free(void *ptr) {
 #define update_zmalloc_stat_add(__n) __sync_add_and_fetch(&used_memory, (__n))
 #define update_zmalloc_stat_sub(__n) __sync_sub_and_fetch(&used_memory, (__n))
 #else
+//在对内存空间做使用时增加了锁
 #define update_zmalloc_stat_add(__n) do { \
     pthread_mutex_lock(&used_memory_mutex); \
     used_memory += (__n); \
     pthread_mutex_unlock(&used_memory_mutex); \
 } while(0)
-
+//减少内存
 #define update_zmalloc_stat_sub(__n) do { \
     pthread_mutex_lock(&used_memory_mutex); \
     used_memory -= (__n); \
@@ -87,10 +88,12 @@ void zlibc_free(void *ptr) {
 } while(0)
 
 #endif
-
+//更新alloc的状态
 #define update_zmalloc_stat_alloc(__n) do { \
     size_t _n = (__n); \
+    //对齐到long
     if (_n&(sizeof(long)-1)) _n += sizeof(long)-(_n&(sizeof(long)-1)); \
+    //判断是否需要线程安全
     if (zmalloc_thread_safe) { \
         update_zmalloc_stat_add(_n); \
     } else { \
@@ -108,10 +111,11 @@ void zlibc_free(void *ptr) {
     } \
 } while(0)
 
-static size_t used_memory = 0;
-static int zmalloc_thread_safe = 0;
-pthread_mutex_t used_memory_mutex = PTHREAD_MUTEX_INITIALIZER;
+static size_t used_memory = 0;  //已经使用的内存
+static int zmalloc_thread_safe = 0; //线程安全模式
+pthread_mutex_t used_memory_mutex = PTHREAD_MUTEX_INITIALIZER; //锁
 
+//默认的oom处理函数
 static void zmalloc_default_oom(size_t size) {
     fprintf(stderr, "zmalloc: Out of memory trying to allocate %zu bytes\n",
         size);
@@ -121,21 +125,27 @@ static void zmalloc_default_oom(size_t size) {
 
 static void (*zmalloc_oom_handler)(size_t) = zmalloc_default_oom;
 
+//调用zmalloc申请size个大小的空间
 void *zmalloc(size_t size) {
     void *ptr = malloc(size+PREFIX_SIZE);
 
     if (!ptr) zmalloc_oom_handler(size);
 #ifdef HAVE_MALLOC_SIZE
+    //更新used_memory
     update_zmalloc_stat_alloc(zmalloc_size(ptr));
     return ptr;
 #else
+    //每次多分配PREFIX_SIZE个大小的内存，返回的是ptr+PREFIX_SIZE
+    //这样获取字符串所占用空间时就很方便了
     *((size_t*)ptr) = size;
     update_zmalloc_stat_alloc(size+PREFIX_SIZE);
     return (char*)ptr+PREFIX_SIZE;
 #endif
 }
 
+//zcalloc
 void *zcalloc(size_t size) {
+    //调用calloc
     void *ptr = calloc(1, size+PREFIX_SIZE);
 
     if (!ptr) zmalloc_oom_handler(size);
@@ -149,13 +159,14 @@ void *zcalloc(size_t size) {
 #endif
 }
 
+//zrealloc:给内存块分配一个新的长度的连续空间
 void *zrealloc(void *ptr, size_t size) {
 #ifndef HAVE_MALLOC_SIZE
     void *realptr;
 #endif
     size_t oldsize;
     void *newptr;
-
+    //为空，直接调用zmalloc
     if (ptr == NULL) return zmalloc(size);
 #ifdef HAVE_MALLOC_SIZE
     oldsize = zmalloc_size(ptr);
@@ -166,15 +177,15 @@ void *zrealloc(void *ptr, size_t size) {
     update_zmalloc_stat_alloc(zmalloc_size(newptr));
     return newptr;
 #else
-    realptr = (char*)ptr-PREFIX_SIZE;
-    oldsize = *((size_t*)realptr);
-    newptr = realloc(realptr,size+PREFIX_SIZE);
+    realptr = (char*)ptr-PREFIX_SIZE; //真正申请的空间
+    oldsize = *((size_t*)realptr);  //原来空间的大小:第一个位置存放的是申请的空间
+    newptr = realloc(realptr,size+PREFIX_SIZE); //申请新空间
     if (!newptr) zmalloc_oom_handler(size);
 
     *((size_t*)newptr) = size;
-    update_zmalloc_stat_free(oldsize);
-    update_zmalloc_stat_alloc(size);
-    return (char*)newptr+PREFIX_SIZE;
+    update_zmalloc_stat_free(oldsize);  //减少oldsize
+    update_zmalloc_stat_alloc(size);    //增加size
+    return (char*)newptr+PREFIX_SIZE;   //返回新的指针
 #endif
 }
 
@@ -182,16 +193,20 @@ void *zrealloc(void *ptr, size_t size) {
  * malloc itself, given that in that case we store a header with this
  * information as the first bytes of every allocation. */
 #ifndef HAVE_MALLOC_SIZE
+//获取ptr分配的内存大小
 size_t zmalloc_size(void *ptr) {
-    void *realptr = (char*)ptr-PREFIX_SIZE;
-    size_t size = *((size_t*)realptr);
+    void *realptr = (char*)ptr-PREFIX_SIZE; //实际的ptr
+    size_t size = *((size_t*)realptr); //ptr的大小
     /* Assume at least that all the allocations are padded at sizeof(long) by
      * the underlying allocator. */
+    //对齐到long
     if (size&(sizeof(long)-1)) size += sizeof(long)-(size&(sizeof(long)-1));
+    //返回实际分配的内存大小
     return size+PREFIX_SIZE;
 }
 #endif
 
+//释放ptr
 void zfree(void *ptr) {
 #ifndef HAVE_MALLOC_SIZE
     void *realptr;
@@ -206,18 +221,21 @@ void zfree(void *ptr) {
     realptr = (char*)ptr-PREFIX_SIZE;
     oldsize = *((size_t*)realptr);
     update_zmalloc_stat_free(oldsize+PREFIX_SIZE);
+    //释放真正的ptr
     free(realptr);
 #endif
 }
 
+//复制字符串
 char *zstrdup(const char *s) {
     size_t l = strlen(s)+1;
-    char *p = zmalloc(l);
+    char *p = zmalloc(l); //申请空间
 
-    memcpy(p,s,l);
+    memcpy(p,s,l); //复制到p
     return p;
 }
 
+//返回当前已经使用的内存大小
 size_t zmalloc_used_memory(void) {
     size_t um;
 
@@ -237,10 +255,12 @@ size_t zmalloc_used_memory(void) {
     return um;
 }
 
+//设置为线程安全模式
 void zmalloc_enable_thread_safeness(void) {
     zmalloc_thread_safe = 1;
 }
 
+//设置内存泄漏处理函数
 void zmalloc_set_oom_handler(void (*oom_handler)(size_t)) {
     zmalloc_oom_handler = oom_handler;
 }
@@ -324,6 +344,7 @@ size_t zmalloc_get_rss(void) {
 #endif
 
 /* Fragmentation = RSS / allocated-bytes */
+//内存碎片率计算
 float zmalloc_get_fragmentation_ratio(size_t rss) {
     return (float)rss/zmalloc_used_memory();
 }

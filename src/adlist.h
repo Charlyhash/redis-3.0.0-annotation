@@ -32,25 +32,27 @@
 #define __ADLIST_H__
 
 /* Node, List, and Iterator are the only data structures used currently. */
-
+//节点
 typedef struct listNode {
     struct listNode *prev;
     struct listNode *next;
     void *value;
 } listNode;
 
+//节点迭代器
 typedef struct listIter {
     listNode *next;
     int direction;
 } listIter;
-
+//链表结构
 typedef struct list {
-    listNode *head;
-    listNode *tail;
-    void *(*dup)(void *ptr);
-    void (*free)(void *ptr);
-    int (*match)(void *ptr, void *key);
-    unsigned long len;
+    listNode *head; //头部
+    listNode *tail; //尾部
+    //实现多态，根据不同的数据类型有不同的dup,free,match
+    void *(*dup)(void *ptr); //复制
+    void (*free)(void *ptr); //释放
+    int (*match)(void *ptr, void *key); //匹配
+    unsigned long len; //保存的长度
 } list;
 
 /* Functions implemented as macros */
@@ -61,33 +63,35 @@ typedef struct list {
 #define listNextNode(n) ((n)->next)
 #define listNodeValue(n) ((n)->value)
 
+//设置-复制、释放、匹配的方法
 #define listSetDupMethod(l,m) ((l)->dup = (m))
 #define listSetFreeMethod(l,m) ((l)->free = (m))
 #define listSetMatchMethod(l,m) ((l)->match = (m))
 
+//获取-复制、释放、匹配的方法
 #define listGetDupMethod(l) ((l)->dup)
 #define listGetFree(l) ((l)->free)
 #define listGetMatchMethod(l) ((l)->match)
 
 /* Prototypes */
-list *listCreate(void);
-void listRelease(list *list);
-list *listAddNodeHead(list *list, void *value);
-list *listAddNodeTail(list *list, void *value);
-list *listInsertNode(list *list, listNode *old_node, void *value, int after);
-void listDelNode(list *list, listNode *node);
-listIter *listGetIterator(list *list, int direction);
-listNode *listNext(listIter *iter);
-void listReleaseIterator(listIter *iter);
-list *listDup(list *orig);
-listNode *listSearchKey(list *list, void *key);
-listNode *listIndex(list *list, long index);
-void listRewind(list *list, listIter *li);
-void listRewindTail(list *list, listIter *li);
-void listRotate(list *list);
+list *listCreate(void); //创建list
+void listRelease(list *list); //释放list
+list *listAddNodeHead(list *list, void *value); //添加到头
+list *listAddNodeTail(list *list, void *value); //添加到尾部
+list *listInsertNode(list *list, listNode *old_node, void *value, int after); //插入节点
+void listDelNode(list *list, listNode *node); //删除节点
+listIter *listGetIterator(list *list, int direction); //获取list的迭代器
+listNode *listNext(listIter *iter); //下一个节点
+void listReleaseIterator(listIter *iter); //释放迭代器
+list *listDup(list *orig); //复制list
+listNode *listSearchKey(list *list, void *key); //查找key
+listNode *listIndex(list *list, long index); //第index个节点
+void listRewind(list *list, listIter *li); //将li重置为list头结点，并设置为正向迭代
+void listRewindTail(list *list, listIter *li); //将li重置为list的尾节点，并设置为反向迭代
+void listRotate(list *list); //将尾结点插入到头结点
 
 /* Directions for iterators */
-#define AL_START_HEAD 0
+#define AL_START_HEAD 0 //迭代器的方向
 #define AL_START_TAIL 1
 
 #endif /* __ADLIST_H__ */

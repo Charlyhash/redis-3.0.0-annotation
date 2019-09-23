@@ -32,6 +32,7 @@
 #define __ZMALLOC_H
 
 /* Double expansion needed for stringification of macro values. */
+//#转为字符串
 #define __xstr(s) __str(s)
 #define __str(s) #s
 
@@ -65,22 +66,22 @@
 #define ZMALLOC_LIB "libc"
 #endif
 
-void *zmalloc(size_t size);
-void *zcalloc(size_t size);
-void *zrealloc(void *ptr, size_t size);
-void zfree(void *ptr);
-char *zstrdup(const char *s);
-size_t zmalloc_used_memory(void);
-void zmalloc_enable_thread_safeness(void);
-void zmalloc_set_oom_handler(void (*oom_handler)(size_t));
-float zmalloc_get_fragmentation_ratio(size_t rss);
-size_t zmalloc_get_rss(void);
-size_t zmalloc_get_private_dirty(void);
+void *zmalloc(size_t size); //申请size个大小的空间
+void *zcalloc(size_t size); //callocl申请size个大小的空间
+void *zrealloc(void *ptr, size_t size); //将ptr指向的内存重新调整为size大小
+void zfree(void *ptr); //释放ptr指向的内存
+char *zstrdup(const char *s); //复制s
+size_t zmalloc_used_memory(void); //当前已占用内存大小
+void zmalloc_enable_thread_safeness(void); //是否设置线程安全模式
+void zmalloc_set_oom_handler(void (*oom_handler)(size_t)); //设置自定义内存溢出的方法
+float zmalloc_get_fragmentation_ratio(size_t rss); //所给大小与已使用内存之比
+size_t zmalloc_get_rss(void); //获取进程所占用物理内存
+size_t zmalloc_get_private_dirty(void); //获取私有脏数据的大小
 size_t zmalloc_get_smap_bytes_by_field(char *field);
-void zlibc_free(void *ptr);
+void zlibc_free(void *ptr); //释放
 
 #ifndef HAVE_MALLOC_SIZE
-size_t zmalloc_size(void *ptr);
+size_t zmalloc_size(void *ptr); //申请的空间大小
 #endif
 
 #endif /* __ZMALLOC_H */
